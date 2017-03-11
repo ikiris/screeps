@@ -3,6 +3,10 @@ require('prototype-creep')();
 let behavior = {};
 behavior['harvest'] = require('behavior-harvest');
 behavior['feed'] = require('behavior-feed');
+behavior['eat'] = require('behavior-eat');
+behavior['find'] = require('behavior-find');
+behavior['carry'] = require('behavior-carry');
+
 let defendRoom = require('room-defend');
 
 

@@ -1,8 +1,11 @@
 module.exports = function() {
     Creep.prototype.addOverride =
         function(behavior) {
-            if (this.memory.postoverride != undefined) {
+            if (this.memory.postoverride1 != undefined) {
                 return;
+            }
+            if (this.memory.postoverride != undefined) {
+                this.memory.postoverride1 = this.memory.postoverride
             }
             this.memory.postoverride = this.memory.behavior;
             this.memory.behavior = behavior;
@@ -10,15 +13,50 @@ module.exports = function() {
     Creep.prototype.rmOverride =
         function(behavior) {
             if (this.memory.behavior != behavior && this.memory.postoverride != undefined) {
-                return
+                return;
             }
             this.memory.behavior = this.memory.postoverride;
             delete this.memory.postoverride;
+            if (this.memory.postoverride1 != undefined) {
+                this.memory.postoverride = this.memory.postoverride1;
+                delete this.memory.postoverride1;
+            }
         };
     Creep.prototype.TravelTo =
         function(target) {
-        if (this.getActiveBodyparts(WORK) > 0) {
-            if (this.carry.energy > 0) {
+        let clean = true;
+        if (this.getActiveBodyparts(WORK) > 0 && (this.memory.role == undefined || this.memory.role != "harvester")) {
+            if (this.carryCapacity > 0 && this.carryCapacity > _.sum(this.carry)) {
+                // I can carry more stuff!
+                let pickupid = this.memory.pickupid;
+                let pickup = undefined;
+                if (pickupid == undefined) {
+                    let pickups = this.pos.findInRange(FIND_DROPPED_ENERGY, 4); //TODO(ikiris):eventually support more types by role
+                    if (pickups.length > 0) {
+                        pickup = this.pos.findClosestByPath(pickups);
+                        this.memory.pickupid = pickup.id;
+                    }
+                }
+                if (pickup != undefined || pickupid != undefined) {
+                    if (pickupid != undefined) {
+                        pickup = Game.getObjectById(pickupid);
+                    }
+                    if(pickup != undefined) {
+                        if (this.pickup(pickup) == ERR_NOT_IN_RANGE) {
+                            this.moveTo(pickup);
+                        }
+                        clean = false;
+                    } else {
+                        delete this.memory.pickupid;
+                        let pickups = this.pos.findInRange(FIND_DROPPED_ENERGY, 4); //TODO(ikiris):eventually support more types by role
+                        if (pickups.length > 0) {
+                            pickup = this.pos.findClosestByPath(pickups);
+                            this.memory.pickupid = pickup.id;
+                        }
+                    }
+                }
+            }
+            if (this.carry.energy > 0 && (this.memory.role == undefined || this.memory.role != "miner")) {
                 // I'm avaliable to do stuff in transit!
 
                 let constructsiteid = this.memory.constructsiteid;
@@ -38,7 +76,7 @@ module.exports = function() {
                         if (this.build(constructsite) == ERR_NOT_IN_RANGE) {
                             this.moveTo(constructsite);
                         }
-                        return;
+                        clean = false;
                     } else {
                         delete this.memory.constructsiteid;
                     }
@@ -61,37 +99,15 @@ module.exports = function() {
                         if (this.repair(repairsite) == ERR_NOT_IN_RANGE) {
                             this.moveTo(repairsite);
                         }
-                        return;
+                        clean = false;
                     } else {
                         delete this.memory.repairsiteid;
                     }
                 }
             }
         }
-        if (this.carryCapacity > 0 && this.carryCapacity > _.sum(this.carry)) {
-            // I can carry more stuff!
-            let pickupid = this.memory.pickupid;
-            let pickup = undefined;
-            if (pickupid == undefined) {
-                let pickups = this.pos.findInRange(FIND_DROPPED_ENERGY, 4); //TODO(ikiris):eventually support more types by role
-                if (pickups.length > 0) {
-                    pickup = this.pos.findClosestByPath(pickups);
-                    this.memory.pickupid = pickup.id;
-                }
-            }
-            if (pickup != undefined || pickupid != undefined) {
-                if (pickupid != undefined) {
-                    pickup = Game.getObjectById(pickupid);
-                }
-                if(pickup != undefined) {
-                    if (this.pickup(pickup) == ERR_NOT_IN_RANGE) {
-                        this.moveTo(pickup);
-                    }
-                    return;
-                } else {
-                    delete this.memory.pickupid;
-                }
-            }
+        if (clean == false) {
+            return;
         }
         this.moveTo(target);
     };

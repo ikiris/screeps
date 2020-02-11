@@ -19,7 +19,7 @@ module.exports = {
                 // try to transfer energy, if it is not in range
                 if (creep.transfer(structure, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                     // move towards it
-                    creep.moveTo(structure);
+                    creep.iMov(structure);
                 }
             }
             return;
@@ -31,7 +31,7 @@ module.exports = {
             if (pickups.length > 0) {
                 pickup = creep.pos.findClosestByPath(pickups);
                 if (creep.pickup(pickup) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(pickup);
+                    creep.iMov(pickup);
                 }
                 return;
             }
@@ -51,7 +51,7 @@ module.exports = {
         if (creep.memory.working == true) {
             let bt = creep.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3)
             if (bt != undefined) {
-                let pt = _.sortBy(bt, s => creep.pos.getRangeTo(s))
+                let pt = _.sortBy(bt, [s => s.progress / s.progressTotal, s => creep.pos.getRangeTo(s)])
                 creep.build(pt[0])
             }
             // find closest spawn, extension or tower which is not full
@@ -74,7 +74,7 @@ module.exports = {
                 // try to transfer energy, if it is not in range
                 if (creep.transfer(structure, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                     // move towards it
-                    creep.moveTo(structure);
+                    creep.iMov(structure)
                 }
             }
         }
@@ -100,7 +100,7 @@ module.exports = {
                 // try to withdraw energy, if the container is not in range
                 if (creep.withdraw(container, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                     // move towards it
-                    creep.moveTo(container);
+                    creep.iMov(container);
                 }
             }
         }

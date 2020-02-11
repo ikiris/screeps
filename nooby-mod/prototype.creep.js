@@ -17,6 +17,23 @@ Creep.prototype.runRole =
         //this.say(this.memory.role);
         roles[this.memory.role].run(this);
     };
+    
+Creep.prototype.iMov =
+    function(target, opts) {
+        let icreep = (!this.memory.stuck || this.memory.stuck < 3)
+        if (!icreep) {
+            this.say("Stuck: ", this.memory.stuck)
+        }
+        let res = this.moveTo(target, {ignoreCreeps: icreep})
+        let lastPos = this.memory.lastpos
+        this.memory.lastpos = this.pos
+        if (res != 0 || lastPos === this.pos) {
+            this.memory.stuck++
+        } else {
+            this.memory.stuck = 0
+        }
+        return res
+    };
 
 /** @function 
     @param {bool} useContainer

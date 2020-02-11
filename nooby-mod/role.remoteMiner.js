@@ -12,6 +12,15 @@ module.exports = {
             filter: s => s.structureType == STRUCTURE_CONTAINER
         })[0];
 
+        if (typeof container === undefined) {
+            let h = creep.harvest(source)
+            if(h == ERR_NOT_IN_RANGE) {
+                creep.moveTo(source);
+            } else if (h == OK && typeof creep.memory.firstmine === "undefined") {
+                creep.memory.firstmine = Game.time;
+            }
+            return;
+        }
         // if creep is on top of the container
         if (creep.pos.isEqualTo(container.pos)) {
             if (typeof creep.memory.firstmine === "undefined") {

@@ -15,7 +15,7 @@ StructureSpawn.prototype.spawnCreepsIfNecessary =
         /** @type {Object.<string, number>} */
         let numberOfCreeps = {};
         for (let role of listOfRoles) {
-            numberOfCreeps[role] = _.sum(creepsInRoom, (c) => c.memory.role == role);
+            numberOfCreeps[role] = _.sum(creepsInRoom, (c) => c.memory.role == role && c.ticksToLive > 10);
         }
         let maxEnergy = room.energyCapacityAvailable;
         let name = undefined;
@@ -52,7 +52,7 @@ StructureSpawn.prototype.spawnCreepsIfNecessary =
             // iterate over all sources
             for (let source of sources) {
                 // if the source has no miner
-                if (!_.some(creepsInRoom, c => c.memory.role == 'miner' && c.memory.sourceId == source.id && c.ticksToLive > 25)) {
+                if (!_.some(creepsInRoom, c => c.memory.role == 'miner' && c.memory.sourceId == source.id && c.ticksToLive > Math.max(23,( c.memory.firstmine ? (c.memory.firstmine - c.memory.firsttick + 2) : 0)))) {
                     // check whether or not the source has a container
                     /** @type {Array.StructureContainer} */
                     let containers = source.pos.findInRange(FIND_STRUCTURES, 1, {
@@ -83,7 +83,7 @@ StructureSpawn.prototype.spawnCreepsIfNecessary =
                 // if no claim order was found, check other roles
                 else if (numberOfCreeps[role] < this.memory.minCreeps[role]) {
                     if (role == 'lorry') {
-                        name = this.createLorry(150);
+                        name = this.createLorry(300);
                     }
                     if (role == 'harvester') {
                         name = this.createFallbackHarvester(maxEnergy);
@@ -98,32 +98,60 @@ StructureSpawn.prototype.spawnCreepsIfNecessary =
             }
         }
         
-        // if none of the above caused a spawn command check for LongDistanceHarvesters
+        // if none of the above caused a spawn command check for remoteMiners
         /** @type {Object.<string, number>} */
-        let numberOfLongDistanceHarvesters = {};
+        let numberRemoteMiners = {};
         if (name == undefined) {
-            // count the number of long distance harvesters globally
-            for (let roomName in this.memory.minLongDistanceHarvesters) {
-                numberOfLongDistanceHarvesters[roomName] = _.sum(Game.creeps, (c) =>
-                    c.memory.role == 'longDistanceHarvester' && c.memory.target == roomName)
+            // count the number of remote miners globally
+            for (let roomName in this.memory.remoteMineRooms) {
+                numberRemoteMiners[roomName] = _.sum(Game.creeps, (c) =>
+                    c.memory.role == 'remoteMiner' && c.memory.target == roomName)
 
-                if (numberOfLongDistanceHarvesters[roomName] < this.memory.minLongDistanceHarvesters[roomName]) {
-                    name = this.createLongDistanceHarvester(maxEnergy, 2, room.name, roomName, 0);
+                if (numberRemoteMiners[roomName] < this.memory.remoteMineRooms[roomName].sources.length) {
+                    name = this.createRemoteMiner(maxEnergy, room.name);
+                }
+                if (!name == undefined) {
+                    break;
                 }
             }
         }
 
+        // if none of the above caused a spawn command check for remoteMiners
+        /** @type {Object.<string, number>} */
+        let numberTruckers = {};
+        if (name == undefined) {
+            // count the number of remote miners globally
+            for (let roomName in this.memory.remoteMineRooms) {
+                if (!this.memory.remoteMineRooms[roomName].sources.length > 0) {
+                    continue;
+                }
+                let asources = _(this.memory.remoteMineRooms[roomName].sources).filter(function (s) {
+                    return _.some(Game.creeps, (c) => c.memory.role == 'remoteMiner' && c.memory.sourceid == s)
+                }).valueOf();
+                for (sid in asources) {
+                    numberTruckers = _.sum(Game.creeps, (c) =>
+                        c.memory.role == 'trucker' && c.memory.sourceid == sid);
+                    if (numberTruckers < 2) {
+                        name = this.createTrucker(energy, roomName, sid);
+                        if (!name == undefined) {
+                            break;
+                        }
+                    }
+                }
+                if (!name == undefined) {
+                    break;
+                }
+            }
+        }
         // print name to console if spawning was a success
-        /*
+/*
         if (name != undefined && _.isString(name)) {
 
             console.log(this.name + " spawned new creep: " + name + " (" + Game.creeps[name].memory.role + ")");
             for (let role of listOfRoles) {
                 console.log(role + ": " + numberOfCreeps[role]);
             }
-            for (let roomName in numberOfLongDistanceHarvesters) {
-                console.log("LongDistanceHarvester" + roomName + ": " + numberOfLongDistanceHarvesters[roomName]);
-            }
+
         }
         */
     };
@@ -151,40 +179,21 @@ StructureSpawn.prototype.createCustomCreep =
     };
 
 // create a new function for StructureSpawn
-StructureSpawn.prototype.createLongDistanceHarvester =
-    function (energy, numberOfWorkParts, home, target, sourceIndex) {
-        // create a body with the specified number of WORK parts and one MOVE part per non-MOVE part
-        // 150 = 100 (cost of WORK) + 50 (cost of MOVE)
-        energy -= 150 * numberOfWorkParts;
-        while (energy - 100 < 0 && numberOfWorkParts > 0) {
-            energy += 150;
-            numberOfWorkParts--;
+StructureSpawn.prototype.createRemoteMiner =
+    function (energy, target) {
+        if (Game.rooms[target].memory.sources === undefined) {
+            return false;
         }
+        sources = _(sources).filter(function(s) {
+            return !_.some(Game.creeps, c => c.memory.role == 'remoteMiner' && c.memory.sourceId == s)
+            }).valueOf();
 
-        var body = [];
-        for (let i = 0; i < numberOfWorkParts; i++) {
-            body.push(WORK);
-        }
-
-        var numberOfParts = Math.floor(energy / 100);
-        // make sure the creep is not too big (more than 50 parts)
-        numberOfParts = Math.max(numberOfParts, 1);
-        numberOfParts = Math.min(numberOfParts, Math.floor((50 - numberOfWorkParts * 2) / 2));
-        for (let i = 0; i < numberOfParts; i++) {
-            body.push(CARRY);
-        }
-        for (let i = 0; i < numberOfParts + numberOfWorkParts; i++) {
-            body.push(MOVE);
-        }
-
-        // create creep with the created body
-        return this.createCreep(body, undefined, {
-            role: 'longDistanceHarvester',
-            home: home,
-            target: target,
-            sourceIndex: sourceIndex,
-            working: false
-        });
+        let wc = Math.floor((energy - 100) / 100);
+        let bigbody = [MOVE,MOVE,WORK, WORK, WORK, WORK, WORK]
+        let body = Math.min(wc + 2,bigbody.length);
+        //console.log("miner: size " + body);
+        return this.createCreep(bigbody.slice(0, body), undefined,
+            { role: 'remoteMiner', sourceId: sources[0], target: target, home: this.room.name});
     };
 
 // create a new function for StructureSpawn
@@ -196,14 +205,15 @@ StructureSpawn.prototype.createClaimer =
 // create a new function for StructureSpawn
 StructureSpawn.prototype.createMiner =
     function (sourceId) {
-        let wc = Math.floor((this.room.energyCapacityAvailable - 50) / 100);
-        let body = Math.min(wc,6) + 1;
+        let wc = Math.floor((this.room.energyCapacityAvailable - 100) / 100);
+        let bigbody = [MOVE, MOVE, WORK, WORK, WORK, WORK, WORK]
+        let body = Math.min(wc + 2,bigbody.length);
         //console.log("miner: size " + body);
         if (this.memory.minCreeps['lorry'] == 0) {
             this.memory.minCreeps['lorry'] = 5;
             this.memory.minCreeps['harvester'] = 0;
         }
-        return this.createCreep([MOVE,WORK, WORK, WORK, WORK, WORK].slice(0, body), undefined,
+        return this.createCreep(bigbody.slice(0, body), undefined,
             { role: 'miner', sourceId: sourceId });
     };
 
@@ -238,4 +248,40 @@ StructureSpawn.prototype.createLorry =
 
         // create creep with the created body and the role 'lorry'
         return this.createCreep(body, undefined, { role: 'lorry', working: false });
+    };
+    
+    
+// create a new function for StructureSpawn
+StructureSpawn.prototype.createTrucker =
+    function (energy, roomName, sourceid) {
+        let maxparts = 50;
+        let base = [WORK,CARRY,MOVE,MOVE];
+        let basecost = 250;
+        
+        let mod = [MOVE,CARRY];
+        let modcost = 100;
+
+        let maxenergy = 500;
+        
+        energy = math.Min(energy, maxenergy);
+
+        if (memory.rooms[roomName].roaded == true) {
+            mod.push(CARRY);
+            modcost += 50;
+            base = base.slice(0,base.length);
+            basecost -= 50;
+        }
+
+        let body = base;
+        let bodycost = basecost;
+        while (true) {
+            if ((bodycost + modcost) > energy || (body.length + mod.length) > maxparts) {
+                break;
+            }
+            body.concat(mod);
+            bodycost += modcost;
+        }
+        
+        // create creep with the created body and the role 'lorry'
+        return this.createCreep(body, undefined, { role: 'trucker', working: false, target: roomName, sourceid: sourceid, home: this.room.name });
     };

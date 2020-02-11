@@ -19,6 +19,32 @@ module.exports.loop = function() {
         Game.creeps[name].runRole();
     }
 
+    for (let roomName in Game.rooms) {
+        let room = Game.rooms[roomName];
+        if (room.name === undefined) {
+            continue;
+        }
+        if (Game.time - room.memory.scanned < 5) {
+            continue;
+        }
+        room.memory.scanned = Game.time;
+        if (room.memory.sources === undefined) {
+            let sources = room.find(FIND_SOURCES);
+            room.memory.sources = sources.map(function(a) {return a.id;});
+        }
+        let exits = Game.map.describeExits(room.name);
+        room.memory.exits = {};
+        for (let exi in room.memory.exits) {
+            if (Game.map.isRoomAvailable(exits[exi])) {
+                room.memory.exits[exi] = exits[exi];
+                memory.rooms[exits[exi]];
+            }
+        }
+        let hostiles = room.find(FIND_HOSTILE_CREEPS)
+        if (hostiles.length > 0) {
+            room.memory.hostile = Game.time;
+        }
+    }
     // find all towers
     var towers = _.filter(Game.structures, s => s.structureType == STRUCTURE_TOWER);
     // for each tower
@@ -27,15 +53,17 @@ module.exports.loop = function() {
         tower.run();
     }
     for (let name in Memory.spawns) {
-        // and checking if the creep is still alive
+        // and checking if the spawn is still alive
         if (Game.spawns[name] == undefined) {
             // if not, delete the memory entry
             delete Memory.spawns[name];
+            continue;
         }
     }
     // for each spawn
     for (let spawnName in Game.spawns) {
+        let spawn = Game.spawns[spawnName];
         // run spawn logic
-        Game.spawns[spawnName].spawnCreepsIfNecessary();
+        spawn.spawnCreepsIfNecessary();
     }
 };

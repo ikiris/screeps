@@ -30,7 +30,7 @@ module.exports = {
             // find closest constructionSite
             let prioritysites;
             let constructionSite;
-            priorityTypeList = [
+            let priorityTypeList = [
                 [STRUCTURE_EXTENSION, STRUCTURE_CONTAINER],
                 [STRUCTURE_WALL, STRUCTURE_RAMPART],
                 STRUCTURE_TOWER,

@@ -5,9 +5,11 @@ var roles = {
     repairer: require('role.repairer'),
     wallRepairer: require('role.wallRepairer'),
     longDistanceHarvester: require('role.longDistanceHarvester'),
+    remoteMiner: require('role.remoteMiner'),
     claimer: require('role.claimer'),
     miner: require('role.miner'),
-    lorry: require('role.lorry')
+    lorry: require('role.lorry'),
+    trucker: require('role.trucker')
 };
 
 Creep.prototype.runRole =
@@ -22,14 +24,16 @@ Creep.prototype.runRole =
 Creep.prototype.getEnergy =
     function (useContainer, useSource) {
         /** @type {StructureContainer} */
-        if (this.memory.seeke == undefined || this.memory.seeke == 0) {
+        if (this.memory.seeke == undefined) {
             this.memory.seeke = 3;
-            let pickups = this.pos.findInRange(FIND_DROPPED_ENERGY, 1); //TODO(ikiris):eventually support more types by role
+            let pickups = this.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+                filter: r => (r.resourceType == RESOURCE_ENERGY)
+            }); //TODO(ikiris):eventually support more types by role
             if (pickups.length > 0) {
                 this.pickup(pickups[0]);
                 return;
             }
-        } else this.memory.seeke--;
+        }
         let container;
         // if the Creep should look for containers
         if (useContainer) {
@@ -63,7 +67,7 @@ Creep.prototype.getEnergy =
             // iterate over all sources
             let creepsInRoom = this.room.find(FIND_MY_CREEPS);
             sources = _(sources).filter(function(s) {
-                return !_.some(creepsInRoom, c => c.memory.role == 'miner' && c.memory.sourceId == s.id && c.getActiveBodyparts(WORK) == 5)
+                return !_.some(creepsInRoom, c => c.memory.role == 'miner' && c.memory.sourceId == s.id && (s.energy <= (s.energyCapacity / 300) * (s.ticksToRegeneration - 2)))
                 }).valueOf();
             let source = this.pos.findClosestByPath(sources);
             if (this.harvest(source) == ERR_NOT_IN_RANGE) {

@@ -51,7 +51,7 @@ module.exports = {
         if (creep.memory.working == true) {
             let bt = creep.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3)
             if (bt != undefined) {
-                let pt = _.sortBy(bt, [s => s.progress / s.progressTotal, s => creep.pos.getRangeTo(s)])
+                let pt = _.sortByOrder(bt, [s => creep.pos.getRangeTo(s), s => s.progress / s.progressTotal], [true, false])
                 creep.build(pt[0])
             }
             // find closest spawn, extension or tower which is not full
@@ -68,7 +68,10 @@ module.exports = {
             if (structure == undefined) {
                 structure = creep.room.storage;
             }
-
+            
+            if (structure == undefined) {
+                structure = creep.room.spawns[0];
+            }
             // if we found one
             if (structure != undefined) {
                 // try to transfer energy, if it is not in range

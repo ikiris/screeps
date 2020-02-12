@@ -49,10 +49,12 @@ module.exports = {
 
         // if creep is supposed to transfer energy to a structure
         if (creep.memory.working == true) {
+            if (creep.carry.energy > creep.carryCapacity * .5) {
             let bt = creep.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3)
-            if (bt != undefined) {
-                let pt = _.sortByOrder(bt, [s => creep.pos.getRangeTo(s), s => s.progress / s.progressTotal], [true, false])
-                creep.build(pt[0])
+                if (bt != undefined) {
+                    let pt = _.sortByOrder(bt, [s => creep.pos.getRangeTo(s), s => s.progress / s.progressTotal], [true, false])
+                    creep.build(pt[0])
+                }
             }
             // find closest spawn, extension or tower which is not full
             let structure = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
@@ -70,7 +72,7 @@ module.exports = {
             }
             
             if (structure == undefined) {
-                structure = creep.room.spawns[0];
+                //structure = creep.room;
             }
             // if we found one
             if (structure != undefined) {
@@ -90,7 +92,7 @@ module.exports = {
 
             if (container == undefined) {
                 container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-                    filter: s => s.structureType == STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 10
+                    filter: s => s.structureType == STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > creep.carryCapacity
                 });
             }
 

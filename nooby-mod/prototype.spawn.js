@@ -83,7 +83,7 @@ StructureSpawn.prototype.spawnCreepsIfNecessary =
                 // if no claim order was found, check other roles
                 else if (numberOfCreeps[role] < this.memory.minCreeps[role]) {
                     if (role == 'lorry') {
-                        name = this.createLorry(300);
+                        name = this.createLorry(min(500, maxEnergy));
                     }
                     if (role == 'harvester') {
                         name = this.createFallbackHarvester(maxEnergy);
